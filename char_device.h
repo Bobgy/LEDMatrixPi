@@ -7,6 +7,8 @@
 #define MEMDEV_NUM 2
 #define MEMDEV_SIZE 4096
 
+#define LED 16
+
 struct mem_dev {
     char *data;
     unsigned long size;

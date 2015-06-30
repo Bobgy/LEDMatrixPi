@@ -8,6 +8,7 @@
 #include <asm/uaccess.h>
 
 #include "char_device.h"
+#include "utils.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 
@@ -16,6 +17,8 @@ static struct cdev char_device;
 
 // Memory device - The device manipulated by file_operations
 static struct mem_dev *mem_dev_p;
+
+static GpioRegisters* _pGpioRegisters;
 
 // open this device
 int char_device_open(struct inode *inode, struct file *filp) {
@@ -44,6 +47,9 @@ ssize_t char_device_read(struct file *filp, char __user *buf, size_t size, loff_
         return -ENODEV;
     }
 
+    // stop the LED
+    digitalWrite(LED, LOW);
+
     // check buffer size
     struct mem_dev *p_dev = filp->private_data;
     if (size > p_dev->size)
@@ -68,6 +74,9 @@ ssize_t char_device_write(struct file *filp, const char __user *buf, size_t size
         printk(KERN_ALERT "char_device_write : Bad parameters!");
         return -ENODEV;
     }
+
+    // light the LED
+    digitalWrite(LED, HIGH);
 
     // check buffer size
     struct mem_dev *p_dev = filp->private_data;
@@ -107,6 +116,9 @@ static int char_device_init(void) {
     printk(KERN_ALERT "Device number is %d\n", device_num);
     printk(KERN_ALERT "Major number is %d\n", MAJOR(device_num));
     printk(KERN_ALERT "Minor number is %d\n", MINOR(device_num));
+
+     _pGpioRegisters = (struct GpioRegisters *)__io_address(GPIO_BASE);
+    pinMode(LED, OUTPUT);
 
     // Allocate/Register device number, now it appreas in /proc/device
     if (register_chrdev_region(device_num, MAX_MINOR_NUM, "char_device")) {
