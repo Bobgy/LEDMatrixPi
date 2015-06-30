@@ -17,3 +17,7 @@ clean:
 
 deploy:
 	scp -r ./ pi@192.168.9.1:~/module/char-device-driver/
+
+insmod:
+	sudo rmmod char_device
+	sudo insmod char_device.ko

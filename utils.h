@@ -1,13 +1,23 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
-#define GPFSEL0 0x20200000
-#define GPFSEL1 0x20200004
-#define GPSET0  0x2020001C
-#define GPCLR0  0x20200028
-#define GPIN0	0x20200034
-#define GPPUD       0x20200094
-#define GPPUDCLK0   0x20200098
+typedef unsigned int INT32U;
+
+struct GpioRegisters
+{
+    INT32U GPFSEL[6];
+    INT32U Reserved1;
+    INT32U GPSET[2];//7
+    INT32U Reserved2;
+    INT32U GPCLR[2];//10
+	INT32U Reserved3;
+	INT32U GPIN0;//13
+	INT32U Reserved4[23];
+	INT32U GPPUD;//37
+	INT32U GPPUDCLK0;
+};
+
+static struct GpioRegisters* _pGpioRegisters;
 
 #define HIGH 1
 #define LOW  0
@@ -15,20 +25,14 @@
 #define INPUT  0
 #define OUTPUT 1
 
-typedef unsigned int INT32U;
-
-#define GET32(addr) (*(INT32U*)(addr))
-#define PUT32(addr, val) *(INT32U*)(addr)=(val)
-
 inline void pinMode(INT32U pin, INT32U st) {
 	INT32U x, offset, gpfsel, val;
 	x = pin / 10;
 	offset = pin % 10;
-	gpfsel = GPFSEL0 + x * 4;
-	val = GET32(gpfsel);
+	val = _pGpioRegisters->GPFSEL[x];
 	val &= ~ (0x7 << offset * 3);
 	val |= st << offset * 3;
-	PUT32(gpfsel, val);
+	_pGpioRegisters->GPFSEL[x] = val;
 }
 
 int _not_used;
@@ -37,20 +41,20 @@ void delay(int time) {
 }
 
 inline void pinPullUp(int pin) {
-	PUT32(GPPUD, 2);
+	_pGpioRegisters->GPPUD = 2;
 	delay(100);
-	PUT32(GPPUDCLK0, 1<<pin);
+	_pGpioRegisters->GPPUDCLK0 = 1<<pin;
     delay(100);
-	PUT32(GPPUD, 0);
-	PUT32(GPPUDCLK0, 0);
+	_pGpioRegisters->GPPUD = 2;
+	_pGpioRegisters->GPPUDCLK0 = 0;
 }
 
-inline void digitalWrite(int pin, int v) {
-	if (v) PUT32(GPSET0, 1<<pin);
-	else   PUT32(GPCLR0, 1<<pin);
+inline void digitalWrite(INT32U pin, int v) {
+	if (v) _pGpioRegisters->GPSET[0] = 1<<pin;
+	else   _pGpioRegisters->GPCLR[0] = 1<<pin;
 }
 
-inline INT32U digitalRead(int pin) {
-	return (GET32(GPIN0) >> pin) & 1;
+inline INT32U digitalRead(INT32U pin) {
+	return (_pGpioRegisters->GPIN0 >> pin) & 1;
 }
 #endif

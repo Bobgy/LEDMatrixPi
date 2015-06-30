@@ -5,7 +5,11 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>    // -> kmalloc
+#include <linux/timer.h>
+#include <linux/err.h>
 #include <asm/uaccess.h>
+#include <asm/io.h>
+#include <mach/platform.h>
 
 #include "char_device.h"
 #include "utils.h"
@@ -18,7 +22,18 @@ static struct cdev char_device;
 // Memory device - The device manipulated by file_operations
 static struct mem_dev *mem_dev_p;
 
-static GpioRegisters* _pGpioRegisters;
+static struct timer_list s_BlinkTimer;
+static int s_BlinkPeriod = 1000;
+static const int LedGpioPin = 18;
+
+static void BlinkTimerHandler(unsigned long unused)
+{
+    static bool on = false;
+    on = !on;
+    digitalWrite(LED, on);
+    mod_timer(&s_BlinkTimer,
+              jiffies + msecs_to_jiffies(s_BlinkPeriod));
+}
 
 // open this device
 int char_device_open(struct inode *inode, struct file *filp) {
@@ -117,8 +132,18 @@ static int char_device_init(void) {
     printk(KERN_ALERT "Major number is %d\n", MAJOR(device_num));
     printk(KERN_ALERT "Minor number is %d\n", MINOR(device_num));
 
-     _pGpioRegisters = (struct GpioRegisters *)__io_address(GPIO_BASE);
+    /* ------------ GPIO BEGIN------------- */
+    _pGpioRegisters = (struct GpioRegisters *)__io_address(GPIO_BASE);
     pinMode(LED, OUTPUT);
+
+    setup_timer(&s_BlinkTimer, BlinkTimerHandler, 0);
+    int result = mod_timer(&s_BlinkTimer,
+                       jiffies + msecs_to_jiffies(s_BlinkPeriod));
+    if (!result) {
+        printk(KERN_ALERT "Failed adding timer\n");
+        goto register_fail;
+    }
+    /* ------------- GPIO END------------- */
 
     // Allocate/Register device number, now it appreas in /proc/device
     if (register_chrdev_region(device_num, MAX_MINOR_NUM, "char_device")) {
@@ -167,6 +192,9 @@ register_fail:
 
 static void char_device_exit(void) {
     printk(KERN_ALERT "Goodbye!");
+
+    // GPIO
+    del_timer(&s_BlinkTimer);
 
     // free memory device
     int i = 0;

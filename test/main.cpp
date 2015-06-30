@@ -17,7 +17,7 @@ int main() {
     }
 
     fprintf(fp0, buffer);
-    //fwrite(buffer, sizeof(buffer), 1, fp0);
+    fwrite(buffer, sizeof(buffer), 1, fp0);
 
     // clear the buffer
     memset(buffer, 0, 4096);
