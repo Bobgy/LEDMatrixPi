@@ -6,7 +6,7 @@ int main() {
     char buffer[4096];
 
     // init
-    strcpy(buffer, "Hello, this is a test of device driver!");
+    strcpy(buffer, "Hello, World!");
     printf("Buffer : %s\n", buffer);
 
     // open the device
@@ -16,7 +16,8 @@ int main() {
         return -1;
     }
 
-    fwrite(buffer, sizeof(buffer), 1, fp0);
+    fprintf(fp0, buffer);
+    //fwrite(buffer, sizeof(buffer), 1, fp0);
 
     // clear the buffer
     memset(buffer, 0, 4096);

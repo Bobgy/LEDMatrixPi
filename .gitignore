@@ -38,3 +38,4 @@
 Module.symvers
 modules.order
 *.mod.c
+*.log

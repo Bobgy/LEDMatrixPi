@@ -46,7 +46,7 @@ ssize_t char_device_read(struct file *filp, char __user *buf, size_t size, loff_
 
     // check buffer size
     struct mem_dev *p_dev = filp->private_data;
-    if (size > p_dev->size) 
+    if (size > p_dev->size)
         goto out;
     if (*ppos + size > p_dev->size)
         size = p_dev->size - *ppos;
@@ -93,10 +93,10 @@ out:
 static const struct file_operations char_device_ops = {
     .owner = THIS_MODULE,
     //.llseek = char_device_llseek,
-    .read = char_device_read, 
-    .write = char_device_write, 
-    .open = char_device_open, 
-    .release = char_device_release, 
+    .read = char_device_read,
+    .write = char_device_write,
+    .open = char_device_open,
+    .release = char_device_release,
 };
 
 

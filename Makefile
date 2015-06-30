@@ -1,10 +1,19 @@
 obj-m := char_device.o
 
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+# this is a usual location
+# uncomment this to replace my custom location
+# KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+KERNELDIR ?= $(shell cat .env)
+
 PWD := $(shell pwd)
 
+OPTIONS := ARCH=arm CROSS_COMPILE=/usr/bin/arm-linux-gnueabi-
+
 all:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+	$(MAKE) $(OPTIONS) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
 	rm -f *.o *.ko modules.order Module.symvers char_device.mod.c
+
+deploy:
+	scp -r ./ pi@192.168.9.1:~/module/char-device-driver/
