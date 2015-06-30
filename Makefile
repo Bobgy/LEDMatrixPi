@@ -1,6 +1,6 @@
 obj-m := char_device.o
 
-KERNELDIR ?= /usr/src/linux-source-3.13.0
+KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 
 all:
@@ -8,4 +8,3 @@ all:
 
 clean:
 	rm -f *.o *.ko modules.order Module.symvers char_device.mod.c
-
