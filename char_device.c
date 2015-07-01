@@ -40,12 +40,6 @@ static int lin_msk, row_msk;
 static int _lin = 0;
 static char ch = 'X';
 
-static void BlinkTimerHandler(unsigned long unused)
-{
-
-    mod_timer (&s_BlinkTimer, jiffies + 1);
-}
-
 static enum hrtimer_restart function_timer(struct hrtimer * unused)
 {
     int k, msk, clr=0, st=0;
