@@ -13,7 +13,7 @@ all:
 	$(MAKE) $(OPTIONS) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
-	rm -f *.o *.ko modules.order Module.symvers char_device.mod.c
+	rm -f *.o *.ko modules.order Module.symvers char_device.mod.c test/*.out
 
 deploy:
 	scp -r ./ pi@192.168.9.1:~/module/char-device-driver/
