@@ -7,6 +7,8 @@
 #include <linux/slab.h>    // -> kmalloc
 #include <linux/timer.h>
 #include <linux/err.h>
+#include <linux/hrtimer.h>
+#include <linux/sched.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <mach/platform.h>
@@ -23,6 +25,13 @@ static struct cdev char_device;
 // Memory device - The device manipulated by file_operations
 static struct mem_dev *mem_dev_p;
 
+/****************************************************************************/
+/* Timer variables block                                                    */
+/****************************************************************************/
+static enum hrtimer_restart function_timer(struct hrtimer *);
+static struct hrtimer htimer;
+static ktime_t kt_periode;
+
 static struct timer_list s_BlinkTimer;
 
 static int row[8] = {4, 25, 24, 23, 22, 27, 18, 17};
@@ -33,9 +42,15 @@ static char ch = 'X';
 
 static void BlinkTimerHandler(unsigned long unused)
 {
+
+    mod_timer (&s_BlinkTimer, jiffies + 1);
+}
+
+static enum hrtimer_restart function_timer(struct hrtimer * unused)
+{
     int k, msk, clr=0, st=0;
     msk = (font[ch]>>(_lin*8)) & 0xff;
-	for (k=7; ~k; --k, msk>>=1) {
+    for (k=7; ~k; --k, msk>>=1) {
         int p = 1 << row[7-k];
         if (msk & 1) st |= p;
         else clr |= p;
@@ -43,7 +58,8 @@ static void BlinkTimerHandler(unsigned long unused)
     digitalWrite ((lin_msk^(1<<lin[_lin])) | st, HIGH);
     digitalWrite ((1<<lin[_lin]) | clr, LOW);
     _lin = (_lin + 1) & 7;
-    mod_timer (&s_BlinkTimer, jiffies + 1);
+    hrtimer_forward_now(& htimer, kt_periode);
+    return HRTIMER_RESTART;
 }
 
 // open this device
@@ -123,9 +139,16 @@ static int char_device_init(void) {
         row_msk |= 1 << row[i];
     }
 
-    setup_timer(&s_BlinkTimer, BlinkTimerHandler, 0);
-    mod_timer(&s_BlinkTimer, jiffies + 1);
     /* ------------- GPIO END------------- */
+
+    /* ------------- HRTIMER BEGIN ----------- */
+
+    kt_periode = ktime_set(0, 100); //seconds,nanoseconds
+    hrtimer_init (& htimer, CLOCK_REALTIME, HRTIMER_MODE_REL);
+    htimer.function = function_timer;
+    hrtimer_start(& htimer, kt_periode, HRTIMER_MODE_REL);
+
+    /* ------------- HRTIMER END ------------- */
 
     // Allocate/Register device number, now it appreas in /proc/device
     if (register_chrdev_region(device_num, MAX_MINOR_NUM, "char_device")) {
@@ -175,7 +198,7 @@ static void char_device_exit(void) {
     printk(KERN_ALERT "Goodbye!");
 
     // GPIO
-    del_timer(&s_BlinkTimer);
+    hrtimer_cancel(& htimer);
 
     // free memory device
     int i = 0;
