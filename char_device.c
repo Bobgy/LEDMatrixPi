@@ -13,6 +13,7 @@
 
 #include "char_device.h"
 #include "utils.h"
+#include "8x8font.h"
 
 MODULE_LICENSE("Dual BSD/GPL");
 
@@ -23,16 +24,26 @@ static struct cdev char_device;
 static struct mem_dev *mem_dev_p;
 
 static struct timer_list s_BlinkTimer;
-static int s_BlinkPeriod = 1000;
-static const int LedGpioPin = 18;
+
+static int row[8] = {4, 25, 24, 23, 22, 27, 18, 17};
+static int lin[8] = {2, 3, 8, 7, 10, 9, 11, 14};
+static int lin_msk, row_msk;
+static int _lin = 0;
+static char ch = 'X';
 
 static void BlinkTimerHandler(unsigned long unused)
 {
-    static bool on = false;
-    on = !on;
-    digitalWrite(LED, on);
-    mod_timer(&s_BlinkTimer,
-              jiffies + msecs_to_jiffies(s_BlinkPeriod));
+    int k, msk, clr=0, st=0;
+    msk = (font[ch]>>(_lin*8)) & 0xff;
+	for (k=7; ~k; --k, msk>>=1) {
+        int p = 1 << row[7-k];
+        if (msk & 1) st |= p;
+        else clr |= p;
+    }
+    digitalWrite ((lin_msk^(1<<lin[_lin])) | st, HIGH);
+    digitalWrite ((1<<lin[_lin]) | clr, LOW);
+    _lin = (_lin + 1) & 7;
+    mod_timer (&s_BlinkTimer, jiffies + 1);
 }
 
 // open this device
@@ -56,55 +67,24 @@ int char_device_release(struct inode *inode, struct file *filp) {
     return 0;
 }
 
-ssize_t char_device_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos) {
-    if (!filp || !buf || !ppos) {
-        printk(KERN_ALERT "char_device_read : Bad parameters!");
-        return -ENODEV;
-    }
-
-    // stop the LED
-    digitalWrite(LED, LOW);
-
-    // check buffer size
-    struct mem_dev *p_dev = filp->private_data;
-    if (size > p_dev->size)
-        goto out;
-    if (*ppos + size > p_dev->size)
-        size = p_dev->size - *ppos;
-
-    // Now copy data to user space
-    if (copy_to_user(buf, p_dev->data + *ppos, size)) {
-        goto out;
-    } else {
-        *ppos += size;
-        return size;
-    }
-
-out:
-    return -EFAULT;
-}
-
 ssize_t char_device_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos) {
     if (!filp || !buf || !ppos) {
         printk(KERN_ALERT "char_device_write : Bad parameters!");
         return -ENODEV;
     }
 
-    // light the LED
-    digitalWrite(LED, HIGH);
-
     // check buffer size
     struct mem_dev *p_dev = filp->private_data;
-    if (size > p_dev->size)
+    if (size > p_dev->size) {
+        printk(KERN_ALERT "writing too much data at the same time!");
         goto out;
-    if (*ppos + size > p_dev->size)
-        size = p_dev->size - *ppos;
+    }
 
     // Now copy data to kernel space
-    if (copy_from_user(p_dev->data + *ppos, buf, size)) {
+    if (copy_from_user(p_dev->data, buf, size)) {
         goto out;
     } else {
-        *ppos + size;
+        ch = p_dev->data[0];
         return size;
     }
 
@@ -117,32 +97,31 @@ out:
 static const struct file_operations char_device_ops = {
     .owner = THIS_MODULE,
     //.llseek = char_device_llseek,
-    .read = char_device_read,
+    //.read = char_device_read,
     .write = char_device_write,
     .open = char_device_open,
     .release = char_device_release,
 };
 
-
-
 static int char_device_init(void) {
+    int i;
     printk(KERN_ALERT "Init!");
     dev_t device_num = MKDEV(MAJOR_DEVICE_NUM, 0);
     printk(KERN_ALERT "Device number is %d\n", device_num);
     printk(KERN_ALERT "Major number is %d\n", MAJOR(device_num));
     printk(KERN_ALERT "Minor number is %d\n", MINOR(device_num));
-
     /* ------------ GPIO BEGIN------------- */
     _pGpioRegisters = (struct GpioRegisters *)__io_address(GPIO_BASE);
-    pinMode(LED, OUTPUT);
+    lin_msk = row_msk = 0;
+    for (i=0; i<8; ++i) {
+        pinMode(lin[i], OUTPUT);
+        pinMode(row[i], OUTPUT);
+        lin_msk |= 1 << lin[i];
+        row_msk |= 1 << row[i];
+    }
 
     setup_timer(&s_BlinkTimer, BlinkTimerHandler, 0);
-    int result = mod_timer(&s_BlinkTimer,
-                       jiffies + msecs_to_jiffies(s_BlinkPeriod));
-    if (!result) {
-        printk(KERN_ALERT "Failed adding timer\n");
-        goto register_fail;
-    }
+    mod_timer(&s_BlinkTimer, jiffies + 1);
     /* ------------- GPIO END------------- */
 
     // Allocate/Register device number, now it appreas in /proc/device
@@ -168,8 +147,7 @@ static int char_device_init(void) {
         goto fail_malloc;
     }
 
-    int i = 0;
-    for (; i < MEMDEV_NUM; ++i) {
+    for (i=0; i < MEMDEV_NUM; ++i) {
         mem_dev_p[i].data = kmalloc(MEMDEV_SIZE, GFP_KERNEL);
         if (!mem_dev_p[i].data) {
             printk(KERN_ALERT "mem_dev_p[i].data malloc fail!");

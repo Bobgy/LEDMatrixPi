@@ -26,7 +26,7 @@ static struct GpioRegisters* _pGpioRegisters;
 #define OUTPUT 1
 
 inline void pinMode(INT32U pin, INT32U st) {
-	INT32U x, offset, gpfsel, val;
+	INT32U x, offset, val;
 	x = pin / 10;
 	offset = pin % 10;
 	val = _pGpioRegisters->GPFSEL[x];
@@ -49,9 +49,10 @@ inline void pinPullUp(int pin) {
 	_pGpioRegisters->GPPUDCLK0 = 0;
 }
 
+// pin is now a mask
 inline void digitalWrite(INT32U pin, int v) {
-	if (v) _pGpioRegisters->GPSET[0] = 1<<pin;
-	else   _pGpioRegisters->GPCLR[0] = 1<<pin;
+	if (v) _pGpioRegisters->GPSET[0] = pin;
+	else   _pGpioRegisters->GPCLR[0] = pin;
 }
 
 inline INT32U digitalRead(INT32U pin) {
