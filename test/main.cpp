@@ -1,31 +1,27 @@
 #include <stdio.h>
 #include <string.h>
 
-int main() {
+int main(int argc, char *argv[]) {
     FILE *fp0 = NULL;
-    char buffer[4096];
+    char buffer[10];
 
     // init
-    strcpy(buffer, "Hello, World!");
+    if (argc>1) {
+        strcpy(buffer, argv[1]);
+    } else {
+        strcpy(buffer, "Hello");
+    }
     printf("Buffer : %s\n", buffer);
 
     // open the device
-    fp0 = fopen("/dev/chardev0", "r+");
+    fp0 = fopen("/dev/ledmatrix", "r+");
     if (!fp0) {
-        printf("Open /dev/chardev0 fail!\n");
+        printf("Open /dev/ledmatrix fail!\n");
         return -1;
     }
 
-    fprintf(fp0, buffer);
+    //fprintf(fp0, "%s", buffer);
     fwrite(buffer, sizeof(buffer), 1, fp0);
-
-    // clear the buffer
-    memset(buffer, 0, 4096);
-
-    // read from the device
-    fread(buffer, 4096, 1, fp0);
-
-    printf("Buffer after read : %s\n", buffer);
 
     fclose(fp0);
 
