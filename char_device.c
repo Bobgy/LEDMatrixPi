@@ -68,6 +68,7 @@ int char_device_release(struct inode *inode, struct file *filp) {
 }
 
 ssize_t char_device_write(struct file *filp, const char __user *buf, size_t size, loff_t *ppos) {
+
     if (!filp || !buf || !ppos) {
         printk(KERN_ALERT "char_device_write : Bad parameters!");
         return -ENODEV;
@@ -85,6 +86,7 @@ ssize_t char_device_write(struct file *filp, const char __user *buf, size_t size
         goto out;
     } else {
         ch = p_dev->data[0];
+        printk("ch is now %c\n", ch);
         return size;
     }
 
